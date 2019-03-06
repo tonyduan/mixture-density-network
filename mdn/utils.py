@@ -8,7 +8,17 @@ def mixture_density_loss(y, pred_parameters):
     Calculate negative log-likelihood of observations y under pred params.
 
     Parameters
-    ---------
+    ----------
+    y: Tensor of shape (m, n)
+
+    pred_parameters: list of n tuples
+        each tuple contains (π, μ, σ) for a scalar dimension of output,
+        where each of (π, μ, σ) is a vector of same length as the number of
+        mixture components
+
+    Returns
+    -------
+    loss: scalar Tensor
     """
     loglik = torch.zeros(y.shape[0])
     for dim, dim_pred_parameters in enumerate(pred_parameters):
@@ -22,7 +32,19 @@ def mixture_density_loss(y, pred_parameters):
 
 def sample_gaussian_mixture(pred_parameters):
     """
-    Generates one
+    Given a set of predicted parameters for a Gaussian mixture model,
+    generate one sample per conditional distribution.
+
+    Parameters
+    ----------
+    pred_parameters: list of n tuples
+        each tuple contains (π, μ, σ) for a scalar dimension of output,
+        where each of (π, μ, σ) is a vector of same length as the number of
+        mixture components
+
+    Returns
+    -------
+    gen_samples: Tensor of shape (m,)
     """
     out_dim = len(pred_parameters)
     batch_size = len(pred_parameters[0][0])
@@ -39,6 +61,10 @@ def sample_gaussian_mixture(pred_parameters):
 def gen_network(dim_in, dim_out):
     """
     Return a simple two-layer neural network with a tanh non-linearity.
+
+    Returns
+    -------
+    module: nn.Module
     """
     return nn.Sequential(nn.Linear(dim_in, dim_in),
                          nn.Tanh(),

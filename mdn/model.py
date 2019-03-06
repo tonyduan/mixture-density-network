@@ -35,13 +35,13 @@ class MixtureDensityNetwork(nn.Module):
         """
         Parameters
         ----------
-        x: Tensor
+        x: Tensor of shape (m, n)
 
         Returns
         -------
-        parameters: list of tuples
+        parameters: list of n tuples
             each tuple contains (π, μ, σ) for a scalar dimension of output,
-            where each variable is a vector of same length as the number of
+            where each of (π, μ, σ) is a vector of same length as the number of
             mixture components
         """
         parameters = []
