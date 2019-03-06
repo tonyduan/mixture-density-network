@@ -10,7 +10,10 @@ An MDN models the conditional distribution over a scalar response as a mixture o
 $$
 p_\theta(y|x) = \sum_{k=1}^K \pi^{(k)} \mathcal{N}(\mu^{(k)}, {\sigma^2}^{(k)}),
 $$
-where the mixture distribution parameters $\{\pi^{(k)}, \mu^{(k)}, {\sigma^2}^{(k)}\}_{k=1}^K$ are output by a neural network with parameters $\theta$, trained to maximize overall log-likelihood.
+where the mixture distribution parameters are output by a neural network, trained to maximize overall log-likelihood. The set of mixture distribution parameters is
+$$
+\{\pi^{(k)}, \mu^{(k)}, {\sigma^2}^{(k)}\}_{k=1}^K
+$$
 
 In order to predict the response as a multivariate Gaussian distribution (for example, in [2]), we assume a fully factored distribution (i.e. a diagonal covariance matrix) and predict each dimesion separately. Another possible approach would be to use an auto-regressive method like in [3], but we leave that implementation for future work.
 
@@ -35,7 +38,9 @@ loss = mixture_density_loss(y, pred_parameters)
 samples = sample_gaussian_mixture(pred_parameters)
 ```
 
-For further details see the `examples/` folder. 
+For further details see the `examples/` folder. Below is a model fit in `ex_1d.py`.
+
+![ex_model](examples/fig_1d.png "Example model output")
 
 #### References
 

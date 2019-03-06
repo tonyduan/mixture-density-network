@@ -17,7 +17,7 @@ def plot_data(x, y):
     plt.hist2d(x, y, bins=35)
     plt.xlim(-8, 8)
     plt.ylim(-1, 1)
-    plt.show()
+    plt.axis('off')
 
 
 if __name__ == "__main__":
@@ -45,9 +45,12 @@ if __name__ == "__main__":
         if i % 100 == 0:
             logger.info(f"Iter: {i}\t" + f"Loss: {loss.data:.2f}")
 
-    print("== Training data")
-    plot_data(x[:,0].numpy(), y[:,0].numpy())
-
-    print("== Sampled data")
     samples = sample_gaussian_mixture(pred_parameters)
+    plt.figure(figsize=(8, 3))
+    plt.subplot(1, 2, 1)
+    plot_data(x[:,0].numpy(), y[:,0].numpy())
+    plt.title("Observed data")
+    plt.subplot(1, 2, 2)
     plot_data(x[:,0].numpy(), samples[:,0].numpy())
+    plt.title("Sampled data")
+    plt.show()
