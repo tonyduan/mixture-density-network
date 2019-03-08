@@ -1,6 +1,4 @@
-### Mixture Density Networks in PyTorch
-
-Last update: March 2019
+### Mixture Density Network
 
 ---
 
@@ -18,7 +16,6 @@ In order to predict the response as a *multivariate* Gaussian distribution (for 
 ```python
 import torch
 from mdn.model import MixtureDensityNetwork
-from mdn.utils import mixture_density_loss, sample_gaussian_mixture
 
 x = torch.randn(5, 1)
 y = torch.randn(5, 1)
@@ -28,10 +25,10 @@ model = MixtureDensityNetwork(1, 1, 3)
 pred_parameters = model(x)
 
 # use this to backprop
-loss = mixture_density_loss(y, pred_parameters)
+loss = model.loss(x, y)
 
 # use this to sample a trained model
-samples = sample_gaussian_mixture(pred_parameters)
+samples = model.sample(x)
 ```
 
 For further details see the `examples/` folder. Below is a model fit with 3 components in `ex_1d.py`.

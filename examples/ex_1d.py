@@ -4,8 +4,7 @@ import torch.optim as optim
 import logging
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
-from mdn.model import MixtureDensityNetwork
-from mdn.utils import mixture_density_loss, sample_gaussian_mixture
+from mdn.models import MixtureDensityNetwork
 
 
 def gen_data(n=512):
@@ -33,19 +32,19 @@ if __name__ == "__main__":
     x = torch.Tensor(x)
     y = torch.Tensor(y)
 
-    model = MixtureDensityNetwork(1, 1, 3)
+    model = MixtureDensityNetwork(1, 1, n_components=3)
     optimizer = optim.Adam(model.parameters(), lr=0.005)
 
     for i in range(args.n_iterations):
         optimizer.zero_grad()
-        pred_parameters = model(x)
-        loss = mixture_density_loss(y, pred_parameters)
+        loss = model.loss(x, y).mean()
         loss.backward()
         optimizer.step()
         if i % 100 == 0:
             logger.info(f"Iter: {i}\t" + f"Loss: {loss.data:.2f}")
 
-    samples = sample_gaussian_mixture(pred_parameters)
+    samples = model.sample(x)
+    breakpoint()
     plt.figure(figsize=(8, 3))
     plt.subplot(1, 2, 1)
     plot_data(x[:,0].numpy(), y[:,0].numpy())
