@@ -11,6 +11,8 @@ where the mixture distribution parameters are output by a neural network, traine
 
 In order to predict the response as a *multivariate* Gaussian distribution (for example, in [2]), we assume a fully factored distribution (i.e. a diagonal covariance matrix) and predict each dimesion separately. Another possible approach would be to use an auto-regressive method like in [3], but we leave that implementation for future work.
 
+Run the example with `python3 -im examples.ex_1d` at the root of the repository.
+
 #### Usage
 
 ```python
