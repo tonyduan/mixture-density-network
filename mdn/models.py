@@ -43,11 +43,14 @@ class MixtureDensityNetwork(MixtureDensity):
     """
     Mixture density network.
     [ Bishop, 1994 ]
-    Parameters
-    ----------
-    dim_in: int; dimensionality of the covariates
-    dim_out: int; dimensionality of the response variable
-    n_components: int; number of components in the mixture model
+
+    A fully connected network followed by the `MixtureDensity` block. This
+    model can be used as stand alone for demonstration purpose.
+
+    Args:
+        dim_in (int): dimensionality of the covariates
+        dim_out (int): dimensionality of the response variable
+        n_components (int): number of components in the mixture model
     """
     def __init__(self, dim_in, dim_out, n_components):
         super().__init__(dim_in, dim_out, n_components)
@@ -59,13 +62,6 @@ class MixtureDensityNetwork(MixtureDensity):
 
     def forward(self, x):
         return super().forward(self.hidden_layer(x))
-
-    def loss(self, x, y):
-        pi, normal = self.forward(x)
-        loglik = normal.log_prob(y.unsqueeze(-1).expand_as(normal.loc))
-        loglik = torch.sum(loglik, dim=-1)
-        loss = -torch.logsumexp(torch.log(pi.probs) + loglik, dim=-1)
-        return loss
 
     def sample(self, x):
         pi, normal = self.forward(x)
@@ -86,8 +82,8 @@ class MixtureDiagNormal(nn.Module):
 
     def forward(self, x):
         mean, std = self.mean_net(x), self.std_net(x)
-        mean = mean.view(*mean.shape[:-1], self.out_dim, self.n_components)
-        std = std.view(*std.shape[:-1], self.out_dim, self.n_components)
+        mean = mean.view(*mean.shape[:-1], self.n_components, self.out_dim)
+        std = std.view(*std.shape[:-1], self.n_components, self.out_dim)
         return Normal(mean, torch.exp(std))
 
 
