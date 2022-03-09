@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.distributions import Normal, OneHotCategorical
 
 
@@ -28,7 +29,9 @@ class MixtureDensityNetwork(nn.Module):
         pi, normal = self.forward(x)
         loglik = normal.log_prob(y.unsqueeze(1).expand_as(normal.loc))
         loglik = torch.sum(loglik, dim=2)
-        loss = -torch.logsumexp(torch.log(pi.probs) + loglik, dim=1)
+        # use pi.logits directly instead of torch.log(pi.probs) to 
+        # avoid numerical problem
+        loss = -torch.logsumexp(pi.logits + loglik, dim=1)
         return loss
 
     def sample(self, x):
@@ -55,7 +58,10 @@ class MixtureDiagNormalNetwork(nn.Module):
         mean, sd = torch.split(params, params.shape[1] // 2, dim=1)
         mean = torch.stack(mean.split(mean.shape[1] // self.n_components, 1))
         sd = torch.stack(sd.split(sd.shape[1] // self.n_components, 1))
-        return Normal(mean.transpose(0, 1), torch.exp(sd).transpose(0, 1))
+        # replaced torch.exp(sd) with ELU plus to improve numerical stability
+        # added epsilon to avoid zero scale
+        # due to non associativity of floating point add, 1 and 1e-7 need to be added seperately
+        return Normal(mean.transpose(0, 1), (F.elu(sd)+1+1e-7).transpose(0, 1))
 
 class CategoricalNetwork(nn.Module):
 
