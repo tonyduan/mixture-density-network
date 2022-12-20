@@ -1,10 +1,12 @@
+from argparse import ArgumentParser
+import logging
+
+from matplotlib import pyplot as plt
 import numpy as np
 import torch
 import torch.optim as optim
-import logging
-import matplotlib.pyplot as plt
-from argparse import ArgumentParser
-from mdn.models import MixtureDensityNetwork
+
+from src.blocks import MixtureDensityNetwork
 
 
 def gen_data(n=512):
@@ -32,7 +34,7 @@ if __name__ == "__main__":
     x = torch.Tensor(x)
     y = torch.Tensor(y)
 
-    model = MixtureDensityNetwork(1, 1, n_components=3)
+    model = MixtureDensityNetwork(1, 1, n_components=3, fixed_sigma=0.01)
     optimizer = optim.Adam(model.parameters(), lr=0.005)
 
     for i in range(args.n_iterations):
@@ -43,13 +45,13 @@ if __name__ == "__main__":
         if i % 100 == 0:
             logger.info(f"Iter: {i}\t" + f"Loss: {loss.data:.2f}")
 
-    samples = model.sample(x)
-    breakpoint()
+    with torch.no_grad():
+        y_hat = model.sample(x)
     plt.figure(figsize=(8, 3))
     plt.subplot(1, 2, 1)
-    plot_data(x[:,0].numpy(), y[:,0].numpy())
+    plot_data(x[:, 0].numpy(), y[:, 0].numpy())
     plt.title("Observed data")
     plt.subplot(1, 2, 2)
-    plot_data(x[:,0].numpy(), samples[:,0].numpy())
+    plot_data(x[:, 0].numpy(), y_hat[:, 0].numpy())
     plt.title("Sampled data")
     plt.show()

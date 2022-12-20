@@ -1,27 +1,67 @@
 ### Mixture Density Network
 
+Last update: December 2022.
+
 ---
 
 Lightweight implementation of a mixture density network [1] in PyTorch.
 
-An MDN models the conditional distribution over a *scalar* response as a mixture of Gaussians.
-<p align="center"><img alt="$$&#10;p_\theta(y|x) = \sum_{k=1}^K \pi^{(k)} \mathcal{N}(\mu^{(k)}, {\sigma^2}^{(k)}),&#10;$$" src="svgs/17870bed581ed5d53c0b24e84ca488a6.svg" align="middle" width="232.54644105pt" height="48.18280005pt"/></p>
-where the mixture distribution parameters are output by a neural network, trained to maximize overall log-likelihood. The set of mixture distribution parameters is the following.
-<p align="center"><img alt="$$&#10;\{\pi^{(k)}, \mu^{(k)}, {\sigma^2}^{(k)}\}_{k=1}^K&#10;$$" src="svgs/89d606a285fc8c10fba5542b37dae2c4.svg" align="middle" width="147.2683674pt" height="22.87862775pt"/></p>
+Suppose we want to regress response $y \in \mathbb{R}^{d}$ using covariates $x \in \mathbb{R}^n$.
 
-In order to predict the response as a *multivariate* Gaussian distribution (for example, in [2]), we assume a fully factored distribution (i.e. a diagonal covariance matrix) and predict each dimesion separately. Another possible approach would be to use an auto-regressive method like in [3], but we leave that implementation for future work.
+We model the conditional distribution as a mixture of Gaussians
+```math
+p_\theta(y|x) = \sum_{k=1}^K \pi^{(k)} N(\mu^{(k)}, {\Sigma}^{(k)}),
+```
+where the mixture distribution parameters listed below are output by a neural network dependent on $x$.
+```math
+\begin{align*}
+( \pi & \in\Delta^{K-1} & \mu^{(k)}&\in\mathbb{R}^{d} &\Sigma^{(k)}&\in \mathrm{S}_+^d) = f_\theta(x)
+\end{align*}
+```
+The training objective is to maximize log-likelihood. The objective is clearly non-convex.
+```math
+\begin{align*}
+\log p_\theta(y|x)
+& \propto\log \sum_{k}\left(\pi^{(k)}\exp\left(-\frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)\right)\\
+& = \mathrm{logsumexp}_k\left(\log\pi^{(k)} - \frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)  \tag{1}\\
+\end{align*}
+```
+Importantly, we need to use `torch.log_softmax(...)` to compute logits of $\pi^{(k)}$ for numerical stability,
+```math
+\begin{align*}
+\log\pi^{(k)} & = \pi_\mathrm{raw}^{(k)} - \mathrm{logsumexp}_k\pi_\mathrm{raw}^{(k)} & \implies \sum_k\exp\log\pi^{(k)} &= 1.
+\end{align*}
+```
+
+**Noise Model**
+
+To simplify the training objective there are assumptions we can make on the noise model $\Sigma^{(k)}$.
+
+1. No assumptions, $\Sigma^{(k)} \in \mathrm{S}_+^d$.
+2. Fully factored, let $\Sigma^{(k)} = \mathrm{diag}({\sigma^2}^{(k)}), {\sigma^2}^{(k)}\in\mathbb{R}_+^d$ where the noise level for each dimension is predicted separately.
+3. Isotrotopic, let $\Sigma^{(k)} = \sigma^2I, \sigma^2\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
+
+Thse correspond to the following objectives.
+```math
+\begin{align*}
+\log p_\theta(y|x) & = \mathrm{logsumexp}_k\left(\log\pi^{(k)} - \frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)  \tag{1}\\
+& = \mathrm{logsumexp}_k \left(\log\pi^{(k)} - \frac{1}{2}\left\|\frac{y-\mu^{(k)}}{\sigma^{(k)}}\right\|^2-\frac{1}{2}\log\|\sigma^{(k)}\|^2\right) \tag{2}\\
+& \propto \mathrm{logsumexp}_k\left(\log \pi^{(k)} - \frac{1}{2}\|y-\mu^{(k)}\|^2\right) \tag{3}
+\end{align*}
+```
+In this repository we implement options (2) and (3). One way to employ option (1) might be a generative modeling style network such as in PixelRNN [3], but that's not in scope here.
 
 #### Usage
 
 ```python
 import torch
-from mdn.model import MixtureDensityNetwork
+from src.blocks import MixtureDensityNetwork
 
 x = torch.randn(5, 1)
 y = torch.randn(5, 1)
 
 # 1D input, 1D output, 3 mixture components
-model = MixtureDensityNetwork(1, 1, 3)
+model = MixtureDensityNetwork(1, 1, 3, fixed_sigma=None)
 pred_parameters = model(x)
 
 # use this to backprop
@@ -33,7 +73,7 @@ samples = model.sample(x)
 
 For further details see the `examples/` folder. Below is a model fit with 3 components in `ex_1d.py`.
 
-![ex_model](examples/fig_1d.png "Example model output")
+![ex_model](examples/ex_1d.png "Example model output")
 
 
 
@@ -41,7 +81,7 @@ For further details see the `examples/` folder. Below is a model fit with 3 comp
 
 [1] Bishop, C. M. Mixture density networks. (1994).
 
-[2] Ha, D. & Schmidhuber, J. World Models. *arXiv:1803.10122 [cs, stat]* (2018).
+[2] Ha, D. & Schmidhuber, J. Recurrent World Models Facilitate Policy Evolution. in *Advances in Neural Information Processing Systems 31* (eds. Bengio, S. et al.) 2450–2462 (Curran Associates, Inc., 2018).
 
 [3] Van Den Oord, A., Kalchbrenner, N. & Kavukcuoglu, K. Pixel Recurrent Neural Networks. in *Proceedings of the 33rd International Conference on International Conference on Machine Learning - Volume 48* 1747–1756.
 
