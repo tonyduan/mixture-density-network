@@ -23,7 +23,7 @@ The training objective is to maximize log-likelihood. The objective is clearly n
 \begin{align*}
 \log p_\theta(y|x)
 & \propto\log \sum_{k}\left(\pi^{(k)}\exp\left(-\frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)\right)\\
-& = \mathrm{logsumexp}_k\left(\log\pi^{(k)} - \frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)  \tag{1}\\
+& = \mathrm{logsumexp}_k\left(\log\pi^{(k)} - \frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)\\
 \end{align*}
 ```
 Importantly, we need to use `torch.log_softmax(...)` to compute logits of $\pi^{(k)}$ for numerical stability,
@@ -40,16 +40,24 @@ To simplify the training objective there are assumptions we can make on the nois
 1. No assumptions, $\Sigma^{(k)} \in \mathrm{S}_+^d$.
 2. Fully factored, let $\Sigma^{(k)} = \mathrm{diag}({\sigma^2}^{(k)}), {\sigma^2}^{(k)}\in\mathbb{R}_+^d$ where the noise level for each dimension is predicted separately.
 3. Isotrotopic, let $\Sigma^{(k)} = \sigma^2I, \sigma^2\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
+4. Fixed isotropic, same as above but do not learn $\sigma^2$.
 
 Thse correspond to the following objectives.
 ```math
 \begin{align*}
 \log p_\theta(y|x) & = \mathrm{logsumexp}_k\left(\log\pi^{(k)} - \frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)  \tag{1}\\
 & = \mathrm{logsumexp}_k \left(\log\pi^{(k)} - \frac{1}{2}\left\|\frac{y-\mu^{(k)}}{\sigma^{(k)}}\right\|^2-\frac{1}{2}\log\|\sigma^{(k)}\|^2\right) \tag{2}\\
-& \propto \mathrm{logsumexp}_k\left(\log \pi^{(k)} - \frac{1}{2}\|y-\mu^{(k)}\|^2\right) \tag{3}
+& = \mathrm{logsumexp}_k \left(\log\pi^{(k)} - \frac{1}{2}\left\|\frac{y-\mu^{(k)}}{\sigma^{(k)}}\right\|^2-\frac{1}{2}\log({\sigma^{(k)}}^2)\right) \tag{3}\\
+& = \mathrm{logsumexp}_k\left(\log \pi^{(k)} - \frac{1}{2}\|y-\mu^{(k)}\|^2\right) \tag{4}
 \end{align*}
 ```
-In this repository we implement options (2) and (3). One way to employ option (1) might be a generative modeling style network such as in PixelRNN [3], but that's not in scope here.
+In this repository we implement options (2, 3, 4). One way to employ option (1) might be a generative modeling style network such as in PixelRNN [3], but that's not in scope here.
+
+**Miscellaneous**
+
+Recall that the objective is clearly non-convex. For example, one local minimum is to ignore all modes except one and place a single diffuse Gaussian distribution on the marginal outcome (i.e. high ${\sigma^2}^{(k)}$).
+
+For this reason it's often preferable to over-parameterize the model and specify `n_components` higher than the true hypothesized number of modes.
 
 #### Usage
 
@@ -61,7 +69,7 @@ x = torch.randn(5, 1)
 y = torch.randn(5, 1)
 
 # 1D input, 1D output, 3 mixture components
-model = MixtureDensityNetwork(1, 1, 3, fixed_sigma=None)
+model = MixtureDensityNetwork(1, 1, n_components=3, hidden_dim=50)
 pred_parameters = model(x)
 
 # use this to backprop

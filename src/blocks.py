@@ -1,6 +1,21 @@
+from enum import Enum, auto
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+def init_weights_xavier(module):
+    if isinstance(module, nn.Linear):
+        torch.nn.init.xavier_normal_(module.weight)
+        torch.nn.init.constant_(module.bias, 0.)
+
+
+class NoiseType(Enum):
+    DIAGONAL = auto()
+    ISOTROPIC = auto()
+    ISOTROPIC_ACROSS_CLUSTERS = auto()
+    FIXED = auto()
 
 
 class MixtureDensityNetwork(nn.Module):
@@ -14,14 +29,18 @@ class MixtureDensityNetwork(nn.Module):
     dim_in: int; dimensionality of the covariates
     dim_out: int; dimensionality of the response variable
     n_components: int; number of components in the mixture model
-    fixed_sigma: float; if specified it fixes the homoskedastic noise model
     """
-    def __init__(self, dim_in, dim_out, n_components, hidden_dim=None, fixed_sigma=None):
+    def __init__(self, dim_in, dim_out, n_components, hidden_dim, noise_type=NoiseType.DIAGONAL, fixed_noise_level=None):
         super().__init__()
-        if hidden_dim is None:
-            hidden_dim = 4 * dim_in
+        assert (fixed_noise_level is not None) == (noise_type is NoiseType.FIXED)
+        num_sigma_channels = {
+            NoiseType.DIAGONAL: dim_out * n_components,
+            NoiseType.ISOTROPIC: n_components,
+            NoiseType.ISOTROPIC_ACROSS_CLUSTERS: 1,
+            NoiseType.FIXED: 0,
+        }[noise_type]
         self.dim_in, self.dim_out, self.n_components = dim_in, dim_out, n_components
-        self.fixed_sigma = fixed_sigma
+        self.noise_type, self.fixed_noise_level = noise_type, fixed_noise_level
         self.pi_network = nn.Sequential(
             nn.Linear(dim_in, hidden_dim),
             nn.ReLU(),
@@ -34,8 +53,9 @@ class MixtureDensityNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 2 * dim_out * n_components),
+            nn.Linear(hidden_dim, dim_out * n_components + num_sigma_channels)
         )
+        self.apply(init_weights_xavier)
 
     def forward(self, x, eps=1e-6):
         #
@@ -46,12 +66,19 @@ class MixtureDensityNetwork(nn.Module):
         # sigma: (bsz, n_components, dim_out)
         #
         log_pi = torch.log_softmax(self.pi_network(x), dim=-1)
-        mu, sigma = torch.split(self.normal_network(x), self.dim_out * self.n_components, dim=1)
+        normal_params = self.normal_network(x)
+        mu = normal_params[..., :self.dim_out * self.n_components]
+        sigma = normal_params[..., self.dim_out * self.n_components:]
+        if self.noise_type is NoiseType.DIAGONAL:
+            sigma = torch.exp(sigma + eps)
+        if self.noise_type is NoiseType.ISOTROPIC:
+            sigma = torch.exp(sigma + eps).repeat(1, self.dim_out)
+        if self.noise_type is NoiseType.ISOTROPIC_ACROSS_CLUSTERS:
+            sigma = torch.exp(sigma + eps).repeat(1, self.n_components * self.dim_out)
+        if self.noise_type is NoiseType.FIXED:
+            sigma = torch.full_like(mu, fill_value=self.fixed_noise_level)
         mu = mu.reshape(-1, self.n_components, self.dim_out)
         sigma = sigma.reshape(-1, self.n_components, self.dim_out)
-        sigma = F.elu(sigma + 1 + eps)
-        if self.fixed_sigma is not None:
-            sigma.fill_(self.fixed_sigma)
         return log_pi, mu, sigma
 
     def loss(self, x, y):
