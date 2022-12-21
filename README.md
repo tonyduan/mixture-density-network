@@ -39,7 +39,7 @@ To simplify the training objective there are assumptions we can make on the nois
 
 1. No assumptions, $\Sigma^{(k)} \in \mathrm{S}_+^d$.
 2. Fully factored, let $\Sigma^{(k)} = \mathrm{diag}({\sigma^2}^{(k)}), {\sigma^2}^{(k)}\in\mathbb{R}_+^d$ where the noise level for each dimension is predicted separately.
-3. Isotrotopic, let $\Sigma^{(k)} = \mathrm{diag}({\sigma^2}^{(k)}), {\sigma^2}^{(k)}\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
+3. Isotrotopic, let $\Sigma^{(k)} = {\sigma^2}^{(k)}I, {\sigma^2}^{(k)}\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
 4. Isotropic across clusters, let $\Sigma^{(k)} = \sigma^2I, \sigma^2\in\mathbb{R}_+$ which assumes the same noise level for each cluster and dimension.
 5. Fixed isotropic, same as above but do not learn $\sigma^2$.
 
