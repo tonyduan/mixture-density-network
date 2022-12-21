@@ -39,8 +39,9 @@ To simplify the training objective there are assumptions we can make on the nois
 
 1. No assumptions, $\Sigma^{(k)} \in \mathrm{S}_+^d$.
 2. Fully factored, let $\Sigma^{(k)} = \mathrm{diag}({\sigma^2}^{(k)}), {\sigma^2}^{(k)}\in\mathbb{R}_+^d$ where the noise level for each dimension is predicted separately.
-3. Isotrotopic, let $\Sigma^{(k)} = \sigma^2I, \sigma^2\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
-4. Fixed isotropic, same as above but do not learn $\sigma^2$.
+3. Isotrotopic, let $\Sigma^{(k)} = \mathrm{diag}({\sigma^2}^{(k)}), {\sigma^2}^{(k)}\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
+4. Isotropic across clusters, let $\Sigma^{(k)} = \sigma^2I, \sigma^2\in\mathbb{R}_+$ which assumes the same noise level for each cluster and dimension.
+5. Fixed isotropic, same as above but do not learn $\sigma^2$.
 
 Thse correspond to the following objectives.
 ```math
@@ -51,7 +52,7 @@ Thse correspond to the following objectives.
 & = \mathrm{logsumexp}_k\left(\log \pi^{(k)} - \frac{1}{2}\|y-\mu^{(k)}\|^2\right) \tag{4}
 \end{align*}
 ```
-In this repository we implement options (2, 3, 4). One way to employ option (1) might be a generative modeling style network such as in PixelRNN [3], but that's not in scope here.
+In this repository we implement options (2, 3, 4, 5). One way to employ option (1) might be a generative modeling style network such as in PixelRNN [3], but that's not in scope here.
 
 **Miscellaneous**
 
