@@ -6,57 +6,55 @@ Last update: December 2022.
 
 Lightweight implementation of a mixture density network [1] in PyTorch.
 
-Suppose we want to regress response $y \in \mathbb{R}^{d}$ using covariates $x \in \mathbb{R}^n$.
+#### Setup
+
+Suppose we want to regress response $\mathbf{y} \in \mathbb{R}^{d}$ using covariates $\mathbf{x} \in \mathbb{R}^n$.
 
 We model the conditional distribution as a mixture of Gaussians
 ```math
-p_\theta(y|x) = \sum_{k=1}^K \pi^{(k)} N(\mu^{(k)}, {\Sigma}^{(k)}),
+p_\theta(\mathbf{y}|\mathbf{x}) = \sum_{k=1}^K \pi_k N(\boldsymbol\mu^{(k)}, {\boldsymbol\Sigma}^{(k)}),
 ```
-where the mixture distribution parameters listed below are output by a neural network dependent on $x$.
+where the mixture distribution parameters are output by a neural network dependent on $\mathbf{x}$.
 ```math
 \begin{align*}
-( \pi & \in\Delta^{K-1} & \mu^{(k)}&\in\mathbb{R}^{d} &\Sigma^{(k)}&\in \mathrm{S}_+^d) = f_\theta(x)
+( \boldsymbol\pi & \in\Delta^{K-1} & \boldsymbol\mu^{(k)}&\in\mathbb{R}^{d} &\boldsymbol\Sigma^{(k)}&\in \mathrm{S}_+^d) = f_\theta(\mathbf{x})
 \end{align*}
 ```
 The training objective is to maximize log-likelihood. The objective is clearly non-convex.
 ```math
 \begin{align*}
-\log p_\theta(y|x)
-& \propto\log \sum_{k}\left(\pi^{(k)}\exp\left(-\frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)\right)\\
-& = \mathrm{logsumexp}_k\left(\log\pi^{(k)} - \frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)\\
+\log p_\theta(\mathbf{y}|\mathbf{x})
+& \propto\log \sum_{k}\left(\pi_k\exp\left(-\frac{1}{2}\left(\mathbf{y}-\boldsymbol\mu^{(k)}\right)^\top {\boldsymbol\Sigma^{(k)}}^{-1}\left(\mathbf{y}-\boldsymbol\mu^{(k)}\right) -\frac{1}{2}\log\det \boldsymbol\Sigma^{(k)}\right)\right)\\
+& = \mathrm{logsumexp}_k\left(\log\pi_k - \frac{1}{2}\left(\mathbf{y}-\boldsymbol\mu^{(k)}\right)^\top {\boldsymbol\Sigma^{(k)}}^{-1}\left(\mathbf{y}-\boldsymbol\mu^{(k)}\right) -\frac{1}{2}\log\det \boldsymbol\Sigma^{(k)}\right)\\
 \end{align*}
 ```
-Importantly, we need to use `torch.log_softmax(...)` to compute logits of $\pi^{(k)}$ for numerical stability,
-```math
-\begin{align*}
-\log\pi^{(k)} & = \pi_\mathrm{raw}^{(k)} - \mathrm{logsumexp}_k\pi_\mathrm{raw}^{(k)} & \implies \sum_k\exp\log\pi^{(k)} &= 1.
-\end{align*}
-```
+Importantly, we need to use `torch.log_softmax(...)` to compute logits $\log \boldsymbol\pi$ for numerical stability.
 
-**Noise Model**
+#### Noise Model
 
-To simplify the training objective there are assumptions we can make on the noise model $\Sigma^{(k)}$.
+There are several options we can make to constrain the noise model $\boldsymbol\Sigma^{(k)}$.
 
-1. No assumptions, $\Sigma^{(k)} \in \mathrm{S}_+^d$.
-2. Fully factored, let $\Sigma^{(k)} = \mathrm{diag}({\sigma^2}^{(k)}), {\sigma^2}^{(k)}\in\mathbb{R}_+^d$ where the noise level for each dimension is predicted separately.
-3. Isotrotopic, let $\Sigma^{(k)} = {\sigma^2}^{(k)}I, {\sigma^2}^{(k)}\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
-4. Isotropic across clusters, let $\Sigma^{(k)} = \sigma^2I, \sigma^2\in\mathbb{R}_+$ which assumes the same noise level for each cluster and dimension.
+1. No assumptions, $\boldsymbol\Sigma^{(k)} \in \mathrm{S}_+^d$.
+2. Fully factored, let $\boldsymbol\Sigma^{(k)} = \mathrm{diag}({\boldsymbol\sigma^{(k)}}^{2}), {\boldsymbol\sigma^{(k)}}^{2}\in\mathbb{R}_+^d$ where the noise level for each dimension is predicted separately.
+3. Isotrotopic, let $\boldsymbol\Sigma^{(k)} = {\sigma^{(k)}}^{2}\mathbf{I}, {\sigma^{(k)}}^{2}\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$.
+4. Isotropic across clusters, let $\boldsymbol\Sigma^{(k)} = \sigma^2\mathbf{I}, \sigma^2\in\mathbb{R}_+$ which assumes the same noise level for each dimension over $d$ *and* cluster.
 5. Fixed isotropic, same as above but do not learn $\sigma^2$.
 
 Thse correspond to the following objectives.
 ```math
 \begin{align*}
-\log p_\theta(y|x) & = \mathrm{logsumexp}_k\left(\log\pi^{(k)} - \frac{1}{2}\left(y-\mu^{(k)}\right)^\top {\Sigma^{(k)}}^{-1}\left(y-\mu^{(k)}\right) -\frac{1}{2}\log\det \Sigma^{(k)}\right)  \tag{1}\\
-& = \mathrm{logsumexp}_k \left(\log\pi^{(k)} - \frac{1}{2}\left\|\frac{y-\mu^{(k)}}{\sigma^{(k)}}\right\|^2-\frac{1}{2}\log\|\sigma^{(k)}\|^2\right) \tag{2}\\
-& = \mathrm{logsumexp}_k \left(\log\pi^{(k)} - \frac{1}{2}\left\|\frac{y-\mu^{(k)}}{\sigma^{(k)}}\right\|^2-\frac{1}{2}\log({\sigma^{(k)}}^2)\right) \tag{3}\\
-& = \mathrm{logsumexp}_k\left(\log \pi^{(k)} - \frac{1}{2}\|y-\mu^{(k)}\|^2\right) \tag{4}
+\log p_\theta(\mathbf{y}|\mathbf{x}) & = \mathrm{logsumexp}_k\left(\log\pi_k - \frac{1}{2}\left(\mathbf{y}-\boldsymbol\mu^{(k)}\right)^\top {\boldsymbol\Sigma^{(k)}}^{-1}\left(\mathbf{y}-\boldsymbol\mu^{(k)}\right) -\frac{1}{2}\log\det \boldsymbol\Sigma^{(k)}\right)  \tag{1}\\
+& = \mathrm{logsumexp}_k \left(\log\pi_k - \frac{1}{2}\left\|\frac{\mathbf{y}-\boldsymbol\mu^{(k)}}{\boldsymbol\sigma^{(k)}}\right\|^2-\frac{1}{2}\log\|\boldsymbol\sigma^{(k)}\|^2\right) \tag{2}\\
+& = \mathrm{logsumexp}_k \left(\log\pi_k - \frac{1}{2}\left\|\frac{\mathbf{y}-\boldsymbol\mu^{(k)}}{\sigma^{(k)}}\right\|^2-\frac{d}{2}\log({\sigma^{(k)}}^2)\right) \tag{3}\\
+& = \mathrm{logsumexp}_k \left(\log\pi_k - \frac{1}{2}\left\|\frac{\mathbf{y}-\boldsymbol\mu^{(k)}}{\sigma}\right\|^2-\frac{d}{2}\log(\sigma^2)\right) \tag{4}\\
+& = \mathrm{logsumexp}_k \left(\log\pi_k - \frac{1}{2}\|\mathbf{y}-\boldsymbol\mu^{(k)}\|^2\right) \tag{5}
 \end{align*}
 ```
-In this repository we implement options (2, 3, 4, 5). One way to employ option (1) might be a generative modeling style network such as in PixelRNN [3], but that's not in scope here.
+In this repository we implement options (2, 3, 4, 5).
 
-**Miscellaneous**
+#### Miscellaneous
 
-Recall that the objective is clearly non-convex. For example, one local minimum is to ignore all modes except one and place a single diffuse Gaussian distribution on the marginal outcome (i.e. high ${\sigma^2}^{(k)}$).
+Recall that the objective is clearly non-convex. For example, one local minimum is to ignore all modes except one and place a single diffuse Gaussian distribution on the marginal outcome (i.e. high ${\sigma}^{(k)}$).
 
 For this reason it's often preferable to over-parameterize the model and specify `n_components` higher than the true hypothesized number of modes.
 
@@ -84,15 +82,11 @@ For further details see the `examples/` folder. Below is a model fit with 3 comp
 
 ![ex_model](examples/ex_1d.png "Example model output")
 
-
-
 #### References
 
 [1] Bishop, C. M. Mixture density networks. (1994).
 
 [2] Ha, D. & Schmidhuber, J. Recurrent World Models Facilitate Policy Evolution. in *Advances in Neural Information Processing Systems 31* (eds. Bengio, S. et al.) 2450–2462 (Curran Associates, Inc., 2018).
-
-[3] Van Den Oord, A., Kalchbrenner, N. & Kavukcuoglu, K. Pixel Recurrent Neural Networks. in *Proceedings of the 33rd International Conference on International Conference on Machine Learning - Volume 48* 1747–1756.
 
 #### License
 

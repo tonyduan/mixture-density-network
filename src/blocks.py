@@ -5,12 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def init_weights_xavier(module):
-    if isinstance(module, nn.Linear):
-        torch.nn.init.xavier_normal_(module.weight)
-        torch.nn.init.constant_(module.bias, 0.)
-
-
 class NoiseType(Enum):
     DIAGONAL = auto()
     ISOTROPIC = auto()
@@ -55,7 +49,6 @@ class MixtureDensityNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, dim_out * n_components + num_sigma_channels)
         )
-        self.apply(init_weights_xavier)
 
     def forward(self, x, eps=1e-6):
         #
