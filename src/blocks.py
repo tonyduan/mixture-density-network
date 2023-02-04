@@ -79,7 +79,7 @@ class MixtureDensityNetwork(nn.Module):
         z_score = (y.unsqueeze(1) - mu) / sigma
         normal_loglik = (
             -0.5 * torch.einsum("bij,bik->bi", z_score, z_score)
-            -0.5 * torch.log(torch.einsum("bij,bik->bi", sigma, sigma))
+            -torch.sum(torch.log(sigma), dim=-1)
         )
         loglik = torch.logsumexp(log_pi + normal_loglik, dim=-1)
         return -loglik

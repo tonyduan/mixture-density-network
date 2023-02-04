@@ -34,7 +34,7 @@ if __name__ == "__main__":
     x = torch.Tensor(x)
     y = torch.Tensor(y)
 
-    model = MixtureDensityNetwork(1, 1, n_components=15, hidden_dim=50, noise_type=NoiseType.ISOTROPIC)
+    model = MixtureDensityNetwork(1, 1, n_components=3, hidden_dim=50, noise_type=NoiseType.DIAGONAL)
     optimizer = optim.Adam(model.parameters(), lr=0.005)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, args.n_iterations)
 
