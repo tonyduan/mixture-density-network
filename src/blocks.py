@@ -90,5 +90,5 @@ class MixtureDensityNetwork(nn.Module):
         rvs = torch.rand(len(x), 1).to(x)
         rand_pi = torch.searchsorted(cum_pi, rvs)
         rand_normal = torch.randn_like(mu) * sigma + mu
-        samples = torch.gather(rand_normal, index=rand_pi.unsqueeze(-1), dim=1).squeeze(dim=1)
+        samples = torch.take_along_dim(rand_normal, indices=rand_pi.unsqueeze(-1), dim=1).squeeze(dim=1)
         return samples
